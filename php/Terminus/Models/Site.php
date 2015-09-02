@@ -1,6 +1,6 @@
 <?php
 
-namespace Terminus;
+namespace Terminus\Models;
 
 use stdClass;
 use Terminus\Request;
@@ -15,57 +15,49 @@ use Terminus\Models\Collections\SiteUserMemberships;
 use Terminus\Models\Collections\OrganizationSiteMemberships;
 use Terminus\Models\Collections\SiteOrganizationMemberships;
 use Terminus\Models\Collections\Workflows;
+use Terminus\Models\TerminusModel;
 
-class Site {
-  public $id;
-  public $attributes;
+class Site extends TerminusModel {
   public $bindings;
-  public $environments = array();
-  public $environmentsCollection;
-  public $information;
-  public $metadata;
-  public $workflows;
+
+  protected $environments;
+  protected $org_memberships;
+  protected $user_memberships;
+  protected $workflows;
 
   private $features;
-  private $org_memberships;
   private $tags;
-  private $user_memberships;
 
   /**
-   * Needs site object from the api to instantiate
-   * @param $site (object) required - api site object
+   * Object constructor
+   *
+   * @param [stdClass] $attributes Attributes of this model
+   * @param [array]    $options    Options to set as $this->key
+   * @return [Site] $this
    */
-  public function __construct($attributes) {
-    if (is_string($attributes)) {
-      $this->id = $attributes;
-      $attributes = new \stdClass();
-    } else {
-      $this->id = $attributes->id;
+  public function __construct($attributes, $options = array()) {
+    if (!is_object($attributes)) die(print_r($attributes,true));
+    $must_haves = array(
+      'name',
+      'id',
+      'service_level',
+      'framework',
+      'created',
+      'memberships'
+    );
+    foreach ($must_haves as $must_have) {
+      if (!isset($attributes->$must_have)) {
+        $attributes->$must_have = null;
+      }
     }
+    parent::__construct($attributes, $options);
 
-    if (is_object($attributes) && property_exists($attributes, 'information')) {
-      # If the attributes has `information` property
-      # unwrap it and massage the data into proper format
-      $this->attributes = $attributes->information;
-      $this->attributes->id = $attributes->id;
-    } else {
-      $this->attributes = $attributes;
-    }
-
-    # deprecated properties
-    # this->information is deprecated, use $this->attributes
-    $this->information = $this->attributes;
-    $this->metadata = new \stdClass();
-    if (isset($this->attributes->metadata)) {
-      $this->metadata = $this->attributes->metadata;
-    }
-
-    $this->org_memberships = new SiteOrganizationMemberships(array('site' => $this));
+    $this->environments     = new Environments(array('site' => $this));
+    $this->org_memberships  = new SiteOrganizationMemberships(
+      array('site' => $this)
+    );
     $this->user_memberships = new SiteUserMemberships(array('site' => $this));
-    $this->environmentsCollection = new Environments(array('site' => $this));
-    $this->workflows = new Workflows(array('owner' => $this));
-
-    return $this;
+    $this->workflows        = new Workflows(array('owner' => $this));
   }
 
   /**
@@ -118,7 +110,7 @@ class Site {
   public function attributes() {
     $path = "attributes";
     $method = "GET";
-    $atts = \TerminusCommand::request('sites',$this->getId(),$path,$method);
+    $atts = \TerminusCommand::request('sites', $this->get('id'), $path, $method);
     return $atts['data'];
   }
 
@@ -128,7 +120,7 @@ class Site {
   public function bindings($type=null) {
     if (empty($this->bindings)) {
       $path = "bindings";
-      $response = \TerminusCommand::request('sites', $this->getId(), $path, "GET");
+      $response = \TerminusCommand::request('sites', $this->get('id'), $path, "GET");
       foreach ($response['data'] as $id => $binding) {
         $binding->id = $id;
         $this->bindings[$binding->type][] = $binding;
@@ -142,14 +134,6 @@ class Site {
       }
     }
     return $this->bindings;
-  }
-
-  /**
-   * Return a specifc environment on the site
-   * @param $environment string required
-   */
-  public function environment($env_id) {
-    return $this->environmentsCollection->get($env_id);
   }
 
   /**
@@ -171,8 +155,8 @@ class Site {
       'owner' => null,
     );
     foreach($info as $info_key => $datum) {
-      if(($datum == null) && property_exists($this->information, $info_key)) {
-        $info[$info_key] = $this->information->$info_key;
+      if ($datum == null) {
+        $info[$info_key] = $this->get($info_key);
       }
     }
 
@@ -191,42 +175,15 @@ class Site {
     $method = 'PUT';
     $data = $level;
     $options = array( 'body' => json_encode($data) , 'headers'=>array('Content-type'=>'application/json') );
-    $response = \TerminusCommand::request('sites', $this->getId(), $path, $method, $options);
+    $response = \TerminusCommand::request('sites', $this->get('id'), $path, $method, $options);
     return $response['data'];
   }
-
-  /**
-   * Return site id
-   */
-  public function getId() {
-    return $this->id;
-  }
-
-  /**
-   * Return site name
-   *
-   * @return [string] $this->information->name
-   */
-  public function getName() {
-    if(property_exists($this->information, 'name')) {
-      return $this->information->name;
-    }
-    return null;
-  }
-
-  /**
-   * Get upstream info
-   */
-   public function getUpstream() {
-     $response = \TerminusCommand::request('sites', $this->getId(), 'code-upstream', 'GET');
-     return $response['data'];
-   }
 
   /**
    * Get upstream updates
    */
    public function getUpstreamUpdates() {
-     $response = \TerminusCommand::request('sites', $this->getId(), 'code-upstream-updates', 'GET');
+     $response = \TerminusCommand::request('sites', $this->get('id'), 'code-upstream-updates', 'GET');
      return $response['data'];
    }
 
@@ -255,7 +212,7 @@ class Site {
   public function createBranch($branch) {
     $data = array('refspec' => sprintf('refs/heads/%s', $branch));
     $options = array( 'body' => json_encode($data) , 'headers'=>array('Content-type'=>'application/json') );
-    $response = \TerminusCommand::request('sites', $this->getId(), 'code-branch', 'POST', $options);
+    $response = \TerminusCommand::request('sites', $this->get('id'), 'code-branch', 'POST', $options);
     return $response['data'];
   }
 
@@ -264,7 +221,7 @@ class Site {
    */
   public function newRelic() {
     $path = 'new-relic';
-    $response = \TerminusCommand::request('sites', $this->getId(), 'new-relic', 'GET');
+    $response = \TerminusCommand::request('sites', $this->get('id'), 'new-relic', 'GET');
     return $response['data'];
   }
 
@@ -327,23 +284,6 @@ class Site {
   }
 
   /**
-   * Create a multidev environment
-   */
-  public function createEnvironment($env, $src = 'dev') {
-    $workflow = $this->workflows->create('create_cloud_development_environment', array(
-      'params' => array(
-        'environment_id' => $env,
-        'deploy' => array(
-          'clone_database' => array( 'from_environment' => $src),
-          'clone_files' => array( 'from_environment' => $src),
-          'annotation' => sprintf("Create the '%s' environment.", $env)
-        )
-      )
-    ));
-    return $workflow;
-  }
-
-  /**
    * Delete a branch from site remove
    *
    * @param [string] $branch Name of branch to remove
@@ -378,17 +318,20 @@ class Site {
   /**
    * Owner handler
    */
-  public function owner($owner=null) {
-    if ($owner !== null) {
-      $method = 'PUT';
-      $options = array( 'body' => json_encode($owner) , 'headers'=>array('Content-type'=>'application/json') );
-    } else {
-      $method = 'GET';
-      $options = array();
+  public function setOwner($owner = null) {
+    if ((boolean)$this->getFeature('change_management')) {
+      $new_owner = $this->user_memberships->get($owner);
+      if ($new_owner == null) {
+        Terminus::error(
+          'The new owner must first be a user. Try adding with `site team`'
+        );
+      }
+      $workflow = $this->workflows->create(
+        'promote_site_user_to_owner',
+        array('user_id' => $new_owner->get('id'))
+      );
+      return $workflow;
     }
-    $path = 'site-owner';
-    $response = \TerminusCommand::request('sites', $site->getId(), $path, $method, $options);
-    return $response['data'];
   }
 
   /**
@@ -396,55 +339,8 @@ class Site {
   */
   function tips() {
     $path = 'code-tips';
-    $data = \TerminusCommand::request('sites',$this->getId(), $path, 'GET');
+    $data = \TerminusCommand::request('sites',$this->id, $path, 'GET');
     return $data['data'];
-  }
-
-  /**
-   * Add membshipship, either org or user
-   *
-   * @param $type string identifiying type of membership ... i.e. organization or user
-   * @param $name string identifying the machine name of organization/user
-   *
-   * @return Workflow object
-   **/
-  public function addMembership($type, $name, $role = 'team_member') {
-    $type = sprintf('add_site_%s_membership', $type);
-    $workflow = $this->workflows->create($type, array(
-      'params'=> array(
-        'organization_name' => $name,
-        'role' => $role
-      )
-    ));
-    return $workflow;
-  }
-
-  /**
-  * Remove membshipship, either org or user
-  *
-  * @param $type string identifiying type of membership ... i.e. organization or user
-  * @param $uuid string identifying the machine name of organization/user
-  *
-  * @return Workflow object
-  **/
-  public function removeMembership($type,$uuid) {
-    $type = sprintf('remove_site_%s_membership',$type);
-    $workflow = $this->workflows->create($type, array(
-      'params'=> array(
-        'organization_id'=>$uuid
-      )
-    ));
-    return $workflow;
-  }
-
-  /**
-   * Get memberships for a site
-  */
-  public function memberships($type='organizations') {
-    $path = sprintf('memberships/%s', $type);
-    $method = 'GET';
-    $response = \TerminusCommand::request('sites', $this->getId(), $path, $method);
-    return $response['data'];
   }
 
   /**
@@ -476,7 +372,9 @@ class Site {
    */
   public function getFeature($feature) {
     if(!isset($this->features)) {
-      $response = TerminusCommand::request('sites', $this->id, 'features', 'GET');
+      $response = TerminusCommand::simple_request(
+        sprintf('sites/%s/features', $this->id)
+      );
       $this->features = (array)$response['data'];
     }
     if(isset($this->features[$feature])) {
@@ -509,6 +407,20 @@ class Site {
   public function removeTag($tag, $org) {
     $response = TerminusCommand::simple_request(
       sprintf('organizations/%s/tags/%s/sites?entity=%s', $org, $tag, $this->id),
+      array('method' => 'delete')
+    );
+    return $response;
+  }
+
+  /**
+   * Deletes site
+   *
+   * @param [string] $tag Tag to remove
+   * @return [array] $response
+   */
+  public function delete() {
+    $response = TerminusCommand::simple_request(
+      'sites/' . $this->id,
       array('method' => 'delete')
     );
     return $response;
@@ -568,13 +480,4 @@ class Site {
     return $orgs;
   }
 
-  /**
-   * Retrieves a list of workflows run and running on this site
-   *
-   * @return [array] $workflows An array of Workflow objects
-   */
-  public function getWorkflows() {
-    $workflows = $this->workflows->fetch($paged = true)->all();
-    return $workflows;
-  }
 }

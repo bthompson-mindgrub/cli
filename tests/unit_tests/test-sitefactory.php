@@ -1,6 +1,6 @@
 <?php
 use \Terminus\SiteFactory;
-use \Terminus\Site;
+use \Terminus\Models\Site;
 use \Symfony\Component\Process\Process;
 /**
  * Testing class for \Terminus\Utils
@@ -19,7 +19,7 @@ use \Symfony\Component\Process\Process;
      unset($sites);
 
      $site = SiteFactory::instance('phpunittest');
-     $this->assertInstanceOf('\Terminus\Site',$site);
+     $this->assertInstanceOf('\Terminus\Models\Site',$site);
      $this->assertObjectHasAttribute("id",$site);
      $this->assertObjectHasAttribute("information",$site);
      $this->assertObjectHasAttribute("workflows",$site);

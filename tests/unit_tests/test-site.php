@@ -1,6 +1,6 @@
 <?php
 use \Terminus\SiteFactory;
-use \Terminus\Site;
+use \Terminus\Models\Site;
 
 class SiteTest extends PHPUnit_Framework_TestCase {
 

@@ -1,6 +1,6 @@
 <?php
 namespace Terminus;
-use Terminus\Site;
+use Terminus\Models\Site;
 use Terminus\Session;
 use \TerminusCommand;
 

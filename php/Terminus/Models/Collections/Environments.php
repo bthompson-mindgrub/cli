@@ -9,6 +9,32 @@ use \TerminusCommand;
 class Environments extends TerminusCollection {
 
   /**
+   * Creates a multidev environment
+   *
+   * @param [string] $new_env Name of new the environment
+   * @return [Workflow] $workflow
+   */
+  public function create($new_env = 'dev') {
+    $workflow = $this->site->workflows->create(
+      'create_cloud_development_environment',
+      array(
+        'params' => array(
+          'environment_id' => $new_env,
+          'deploy'         => array(
+            'clone_database' => array('from_environment' => $this->id),
+            'clone_files'    => array('from_environment' => $this->id),
+            'annotation'     => sprintf(
+              'Create the "%s" environment.',
+              $new_env
+            )
+          )
+        )
+      )
+    );
+    return $workflow;
+  }
+
+  /**
    * List Environment IDs, with Dev/Test/Live first
    *
    * @return [array] $ids
@@ -42,7 +68,7 @@ class Environments extends TerminusCollection {
    * @return [string] $url URL to use in fetch query
    */
   protected function getFetchUrl() {
-    $url = 'sites/' . $this->site->getId() . '/environments';
+    $url = 'sites/' . $this->site->get('id') . '/environments';
     return $url;
   }
 

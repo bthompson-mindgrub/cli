@@ -5,6 +5,7 @@ use \Terminus\Endpoint;
 use \Terminus\Request;
 use \Terminus\Session;
 use \Terminus\Loggers\Regular as Logger;
+use Terminus\Models\Collections\Sites;
 
 /**
  * The base class for Terminus commands
@@ -26,6 +27,7 @@ abstract class TerminusCommand {
     //Load commonly used data from cache
     $this->cache   = Terminus::get_cache();
     $this->session = Session::instance();
+    $this->sites   = new Sites();
   }
 
   /**

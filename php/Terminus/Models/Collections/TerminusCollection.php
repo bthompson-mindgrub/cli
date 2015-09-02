@@ -35,7 +35,7 @@ abstract class TerminusCollection extends TerminusModel {
    * Fetches model data from API and instantiates its model instances
    *
    * @param [boolean] $paged True to use paginated API requests
-   * @return [TerminusModel] $this
+   * @return [TerminusCollection] $this
    */
   public function fetch($paged = false) {
     $results = $this->getCollectionData($paged);

@@ -8,10 +8,10 @@
 use Terminus\Utils;
 use Terminus\Models\Organization;
 use Terminus\Models\Upstreams;
+use Terminus\Models\Collections\Sites;
 use Terminus\Session;
 use Terminus\SitesCache;
-use Terminus\Site;
-use Terminus\SiteFactory;
+use Terminus\Models\Site;
 use Terminus\Auth;
 use Terminus\Helpers\Input;
 use Terminus\Models\User;
@@ -88,7 +88,6 @@ class Sites_Command extends TerminusCommand {
 
     $this->handleDisplay($rows);
   }
-
 
   /**
    * Create a new site
